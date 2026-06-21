@@ -1,0 +1,37 @@
+{
+  "app_name": "Carbon Monitor Watch",
+  "projects": [
+    {
+      "id": "graced_database",
+      "name": "GRACED Database",
+      "server": "gpu104",
+      "host": "gpu104",
+      "source": "/data3/kow/CM_Graced_Database/log/running_code",
+      "mirror": "log_mirror/graced_database"
+    },
+    {
+      "id": "cities_database",
+      "name": "Cities Database",
+      "server": "gpu104",
+      "host": "gpu104",
+      "source": "/data3/kow/CM_Cities_Database/log/running_code",
+      "mirror": "log_mirror/cities_database"
+    },
+    {
+      "id": "china_database",
+      "name": "China Database",
+      "server": "gpu104",
+      "host": "gpu104",
+      "source": "/data3/kow/CM_China_Database/log/all_process",
+      "mirror": "log_mirror/china_database"
+    },
+    {
+      "id": "power_database",
+      "name": "Power Database",
+      "server": "cm47",
+      "host": null,
+      "source": "/data/xuanrenSong/CM_Power_Database/log",
+      "mirror": "log_mirror/power_database"
+    }
+  ]
+}
