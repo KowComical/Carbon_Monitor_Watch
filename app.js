@@ -17,6 +17,8 @@ const state = {
   staticProjectCache: new Map(),
 };
 
+const DATA_VERSION = "20260621-md-headings";
+
 const STATUS_LABELS = {
   ok: "OK",
   warning: "Warning",
@@ -46,7 +48,10 @@ function escapeHtml(value) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
+  const cacheBustedUrl = url.startsWith("data/")
+    ? `${url}${url.includes("?") ? "&" : "?"}v=${DATA_VERSION}`
+    : url;
+  const response = await fetch(cacheBustedUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
@@ -199,14 +204,11 @@ function renderMarkdown(value) {
       html.push(`<div class="md-spacer"></div>`);
       continue;
     }
-    if (trimmed.startsWith("### ")) {
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (headingMatch) {
       closeList();
-      html.push(`<h4>${formatMarkdownInline(trimmed.slice(4))}</h4>`);
-      continue;
-    }
-    if (trimmed.startsWith("## ")) {
-      closeList();
-      html.push(`<h3>${formatMarkdownInline(trimmed.slice(3))}</h3>`);
+      const level = headingMatch[1].length;
+      html.push(`<h${level}>${formatMarkdownInline(headingMatch[2])}</h${level}>`);
       continue;
     }
     if (trimmed.startsWith("- ")) {
@@ -516,19 +518,26 @@ async function loadProject(projectId, preferredDate = null) {
   state.selectedProjectId = projectId;
   renderProjects();
   qs("#selectedLogName").textContent = "Loading project";
+  qs("#logContent").classList.remove("markdown-content");
   qs("#logContent").textContent = "Loading...";
-  const project = await fetchProjectData(projectId, 0, state.initialDateLimit);
-  mergeProjectSlice(project, true);
-  renderProjectHeading();
-  const date = state.project.logsByDate[preferredDate]
-    ? preferredDate
-    : state.project.latestDate || state.project.dates?.[0]?.date || null;
-  if (date) {
-    selectDate(date);
-  } else {
-    renderDates();
-    renderLogs();
-    qs("#logContent").textContent = "";
+  try {
+    const project = await fetchProjectData(projectId, 0, state.initialDateLimit);
+    mergeProjectSlice(project, true);
+    renderProjectHeading();
+    const date = state.project.logsByDate[preferredDate]
+      ? preferredDate
+      : state.project.latestDate || state.project.dates?.[0]?.date || null;
+    if (date) {
+      selectDate(date);
+    } else {
+      renderDates();
+      renderLogs();
+      qs("#logContent").textContent = "";
+    }
+  } catch (error) {
+    qs("#selectedLogName").textContent = "Project failed to load";
+    qs("#logContent").classList.remove("markdown-content");
+    qs("#logContent").textContent = `Failed to load project: ${error.message}`;
   }
 }
 
