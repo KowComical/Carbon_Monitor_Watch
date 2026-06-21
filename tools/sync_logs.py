@@ -9,9 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config.json"
 MARKER = ROOT / "log_mirror" / ".last_sync"
-RSYNC_FLAGS = ["-rt", "--no-owner", "--no-group", "--no-perms", "--omit-dir-times"]
+RSYNC_FLAGS = ["-rt", "--delete", "--no-owner", "--no-group", "--no-perms", "--omit-dir-times"]
 WINDOW_DAYS = 14
-LOG_SUFFIXES = {".log", ".out", ".txt"}
+LOG_SUFFIXES = {".log", ".md", ".out", ".txt"}
+LOG_SUFFIX_PRIORITY = {".md": 4, ".log": 3, ".out": 2, ".txt": 1}
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT))
 
@@ -45,6 +46,40 @@ def remove_empty_dirs(root: Path) -> int:
     return removed
 
 
+def prune_superseded_logs(root: Path) -> dict[str, int]:
+    groups: dict[str, list[Path]] = {}
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in LOG_SUFFIXES:
+            continue
+        rel = path.relative_to(root)
+        if any(part.startswith(".") for part in rel.parts):
+            continue
+        groups.setdefault(rel.with_suffix("").as_posix(), []).append(path)
+
+    deleted_files = 0
+    deleted_bytes = 0
+    for paths in groups.values():
+        if len(paths) < 2:
+            continue
+        keeper = max(
+            paths,
+            key=lambda item: (
+                LOG_SUFFIX_PRIORITY.get(item.suffix.lower(), 0),
+                item.stat().st_mtime,
+            ),
+        )
+        for path in paths:
+            if path == keeper:
+                continue
+            try:
+                deleted_bytes += path.stat().st_size
+                path.unlink()
+                deleted_files += 1
+            except OSError as exc:
+                print(f"Failed to delete superseded log {path}: {exc}")
+    return {"deletedFiles": deleted_files, "deletedBytes": deleted_bytes}
+
+
 def prune_old_logs(days: int) -> dict[str, int | str | None]:
     index = scanner.get_index(force=True)
     cutoff = date_cutoff(index, days)
@@ -54,6 +89,8 @@ def prune_old_logs(days: int) -> dict[str, int | str | None]:
     deleted_files = 0
     deleted_bytes = 0
     deleted_dirs = 0
+    superseded_files = 0
+    superseded_bytes = 0
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     mirrors = {project["id"]: (ROOT / project["mirror"]).resolve() for project in config["projects"]}
 
@@ -78,12 +115,17 @@ def prune_old_logs(days: int) -> dict[str, int | str | None]:
                     deleted_files += 1
                 except OSError as exc:
                     print(f"Failed to delete {target}: {exc}")
+        superseded = prune_superseded_logs(mirror)
+        superseded_files += superseded["deletedFiles"]
+        superseded_bytes += superseded["deletedBytes"]
         deleted_dirs += remove_empty_dirs(mirror)
 
     return {
         "deletedFiles": deleted_files,
         "deletedBytes": deleted_bytes,
         "deletedDirs": deleted_dirs,
+        "supersededFiles": superseded_files,
+        "supersededBytes": superseded_bytes,
         "cutoffDate": cutoff,
     }
 
@@ -102,6 +144,11 @@ def main() -> None:
         "Pruned "
         f"{prune['deletedFiles']} old log files before {prune['cutoffDate']} "
         f"({scanner.human_bytes(int(prune['deletedBytes']))})."
+    )
+    print(
+        "Pruned "
+        f"{prune['supersededFiles']} superseded log files "
+        f"({scanner.human_bytes(int(prune['supersededBytes']))})."
     )
     MARKER.write_text("Log mirror sync complete.\n", encoding="utf-8")
     build(days=args.days)

@@ -603,6 +603,57 @@ input[type="search"] {
   overflow-wrap: anywhere;
 }
 
+.log-content.markdown-content {
+  white-space: normal;
+}
+
+.log-content.markdown-content h3,
+.log-content.markdown-content h4,
+.log-content.markdown-content p,
+.log-content.markdown-content ul {
+  margin: 0;
+}
+
+.log-content.markdown-content h3 {
+  margin: 18px 0 10px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.log-content.markdown-content h4 {
+  margin: 14px 0 8px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.log-content.markdown-content ul {
+  display: grid;
+  gap: 7px;
+  padding-left: 18px;
+}
+
+.log-content.markdown-content li,
+.log-content.markdown-content p {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.log-content.markdown-content code {
+  border-radius: 5px;
+  padding: 1px 5px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.md-spacer {
+  height: 10px;
+}
+
 .empty-state {
   color: var(--muted);
   font-size: 13px;

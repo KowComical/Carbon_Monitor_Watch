@@ -11,12 +11,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
 MIRROR_MARKER_PATH = ROOT / "log_mirror" / ".last_sync"
-LOG_SUFFIXES = {".log", ".out", ".txt"}
+LOG_SUFFIXES = {".log", ".md", ".out", ".txt"}
+LOG_SUFFIX_PRIORITY = {".md": 4, ".log": 3, ".out": 2, ".txt": 1}
 SCAN_LIMIT_BYTES = 2_500_000
 CACHE_TTL_SECONDS = 3600
 
 DATE_RE = re.compile(r"(20\d{2})[-/_.](\d{2})[-/_.](\d{2})")
-OK_RE = re.compile(r"\b(finished|completed|success|succeeded|updated|done)\b", re.I)
+OK_RE = re.compile(r"\b(ok|finished|completed|success|succeeded|updated|done)\b", re.I)
 WARN_RE = re.compile(r"\b(warn|warning|timeout|retry|deprecated)\b", re.I)
 
 _CACHE: dict[str, Any] = {"built_at": 0.0, "mirror_version": None, "data": None}
@@ -59,7 +60,7 @@ def is_hidden_or_temp(path: Path) -> bool:
 def iter_log_files(root: Path) -> list[Path]:
     if not root.exists():
         return []
-    files: list[Path] = []
+    selected: dict[str, Path] = {}
     for path in root.rglob("*"):
         if not path.is_file():
             continue
@@ -68,8 +69,16 @@ def iter_log_files(root: Path) -> list[Path]:
             continue
         if path.suffix.lower() not in LOG_SUFFIXES:
             continue
-        files.append(path)
-    return files
+        key = rel.with_suffix("").as_posix()
+        current = selected.get(key)
+        if current is None:
+            selected[key] = path
+            continue
+        current_priority = LOG_SUFFIX_PRIORITY.get(current.suffix.lower(), 0)
+        next_priority = LOG_SUFFIX_PRIORITY.get(path.suffix.lower(), 0)
+        if (next_priority, path.stat().st_mtime) > (current_priority, current.stat().st_mtime):
+            selected[key] = path
+    return list(selected.values())
 
 
 def read_for_scan(path: Path) -> str:
