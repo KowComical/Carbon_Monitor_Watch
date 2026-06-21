@@ -4,6 +4,7 @@ const state = {
   selectedProjectId: null,
   selectedDate: null,
   selectedLogPath: null,
+  selectedLogIsMarkdown: false,
   rawContent: "",
   lineMode: "all",
   initialDateLimit: 3,
@@ -142,6 +143,64 @@ function issueChips(item) {
   return chips.join("");
 }
 
+function safeStyle(value) {
+  const style = String(value || "");
+  return /^[#:\w\s;.,()%+-]+$/.test(style) ? style : "";
+}
+
+function formatMarkdownInline(value) {
+  let html = escapeHtml(value);
+  html = html.replace(/`([^`]+)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`);
+  html = html.replace(
+    /&lt;span style=&quot;([^&]+)&quot;&gt;([\s\S]*?)&lt;\/span&gt;/g,
+    (_, style, text) => `<span style="${safeStyle(style)}">${text}</span>`
+  );
+  return html;
+}
+
+function renderMarkdown(value) {
+  const lines = value.split("\n");
+  const html = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      html.push("</ul>");
+      inList = false;
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      closeList();
+      html.push(`<div class="md-spacer"></div>`);
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      closeList();
+      html.push(`<h4>${formatMarkdownInline(trimmed.slice(4))}</h4>`);
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      closeList();
+      html.push(`<h3>${formatMarkdownInline(trimmed.slice(3))}</h3>`);
+      continue;
+    }
+    if (trimmed.startsWith("- ")) {
+      if (!inList) {
+        html.push("<ul>");
+        inList = true;
+      }
+      html.push(`<li>${formatMarkdownInline(trimmed.slice(2))}</li>`);
+      continue;
+    }
+    closeList();
+    html.push(`<p>${formatMarkdownInline(trimmed)}</p>`);
+  }
+  closeList();
+  return html.join("");
+}
+
 function renderStatusSummary(projects) {
   const counts = projects.reduce((acc, project) => {
     acc[project.status] = (acc[project.status] || 0) + 1;
@@ -186,6 +245,7 @@ function setStatusFilter(status) {
     state.selectedProjectId = null;
     state.selectedDate = null;
     state.selectedLogPath = null;
+    state.selectedLogIsMarkdown = false;
     qs("#projectName").textContent = "No matching projects";
     qs("#projectMeta").textContent = "Change the status filter";
     qs("#dateList").innerHTML = "";
@@ -372,6 +432,7 @@ function selectDate(date) {
   state.selectedDate = date;
   const logs = currentLogs();
   state.selectedLogPath = logs[0]?.path || null;
+  state.selectedLogIsMarkdown = Boolean(state.selectedLogPath?.toLowerCase().endsWith(".md"));
   state.rawContent = "";
   renderDates();
   renderLogs();
@@ -388,6 +449,7 @@ async function selectLog(path) {
   const requestId = state.logRequestId + 1;
   state.logRequestId = requestId;
   state.selectedLogPath = path;
+  state.selectedLogIsMarkdown = path.toLowerCase().endsWith(".md");
   renderLogs();
   qs("#selectedLogName").textContent = `${path} | tail ${state.tailLines}`;
   qs("#logContent").textContent = "Loading...";
@@ -400,6 +462,7 @@ async function selectLog(path) {
   } catch (error) {
     if (requestId !== state.logRequestId) return;
     state.rawContent = "";
+    qs("#logContent").classList.remove("markdown-content");
     qs("#logContent").textContent = `Failed to load log: ${error.message}`;
   }
 }
@@ -433,7 +496,14 @@ function renderLogContent() {
   if (query) {
     lines = lines.filter((line) => line.toLowerCase().includes(query));
   }
-  qs("#logContent").textContent = lines.join("\n") || "No matching lines.";
+  const content = lines.join("\n") || "No matching lines.";
+  const target = qs("#logContent");
+  target.classList.toggle("markdown-content", state.selectedLogIsMarkdown);
+  if (state.selectedLogIsMarkdown) {
+    target.innerHTML = renderMarkdown(content);
+  } else {
+    target.textContent = content;
+  }
 }
 
 async function loadProject(projectId, preferredDate = null) {
