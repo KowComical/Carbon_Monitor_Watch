@@ -20,8 +20,9 @@ git add static
 
 if git diff --cached --quiet; then
   echo "No static site changes to publish."
-  exit 0
+else
+  git commit -m "Update Carbon Monitor Watch data $(date +%F)"
+  git push origin HEAD
 fi
 
-git commit -m "Update Carbon Monitor Watch data $(date +%F)"
-git push origin HEAD
+git subtree push --prefix static origin gh-pages

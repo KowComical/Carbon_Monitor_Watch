@@ -34,14 +34,15 @@ deleted after each sync.
 python tools/build_static_data.py --days 14
 ```
 
-The generated site lives in `static/`. GitHub Pages deploys that folder through
-`.github/workflows/pages.yml`; `log_mirror/` and `logs/` are intentionally not
-committed.
+The generated site lives in `static/`. GitHub Pages is published from the
+`gh-pages` branch, whose root is the contents of `static/`; `log_mirror/` and
+`logs/` are intentionally not committed.
 
 ## Sync And Publish
 
 After a GitHub remote is configured, this command syncs logs, rebuilds
-`static/data/`, commits static changes, and pushes them:
+`static/data/`, commits static changes to `main`, and pushes `static/` to the
+`gh-pages` branch:
 
 ```bash
 bash tools/sync_and_publish.sh
