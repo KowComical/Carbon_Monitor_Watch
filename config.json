@@ -35,7 +35,7 @@
       "host": null,
       "source": "/data/xuanrenSong/CM_Power_Database/log",
       "mirror": "log_mirror/power_database",
-      "log_suffixes": [".log", ".out", ".txt"]
+      "log_suffixes": [".md"]
     }
   ]
 }
