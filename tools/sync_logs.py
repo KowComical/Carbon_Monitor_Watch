@@ -28,7 +28,14 @@ def sync_sources() -> None:
         source = project["source"].rstrip("/") + "/"
         if project.get("host"):
             source = f"{project['host']}:{source}"
-        cmd = ["rsync", *RSYNC_FLAGS, source, str(dest) + "/"]
+        cmd = ["rsync", *RSYNC_FLAGS]
+        suffixes = [suffix.lower() for suffix in project.get("log_suffixes", [])]
+        if suffixes:
+            cmd.append("--include=*/")
+            for suffix in suffixes:
+                cmd.append(f"--include=*{suffix}")
+            cmd.append("--exclude=*")
+        cmd.extend([source, str(dest) + "/"])
         print(f"Syncing {project['name']} from {source}")
         subprocess.run(cmd, check=True)
 
@@ -46,10 +53,30 @@ def remove_empty_dirs(root: Path) -> int:
     return removed
 
 
-def prune_superseded_logs(root: Path) -> dict[str, int]:
-    groups: dict[str, list[Path]] = {}
+def prune_disallowed_logs(root: Path, allowed_suffixes: set[str]) -> dict[str, int]:
+    deleted_files = 0
+    deleted_bytes = 0
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in LOG_SUFFIXES:
+            continue
+        rel = path.relative_to(root)
+        if any(part.startswith(".") for part in rel.parts):
+            continue
+        if path.suffix.lower() in allowed_suffixes:
+            continue
+        try:
+            deleted_bytes += path.stat().st_size
+            path.unlink()
+            deleted_files += 1
+        except OSError as exc:
+            print(f"Failed to delete disallowed log {path}: {exc}")
+    return {"deletedFiles": deleted_files, "deletedBytes": deleted_bytes}
+
+
+def prune_superseded_logs(root: Path, allowed_suffixes: set[str]) -> dict[str, int]:
+    groups: dict[str, list[Path]] = {}
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in allowed_suffixes:
             continue
         rel = path.relative_to(root)
         if any(part.startswith(".") for part in rel.parts):
@@ -84,19 +111,39 @@ def prune_old_logs(days: int) -> dict[str, int | str | None]:
     index = scanner.get_index(force=True)
     cutoff = date_cutoff(index, days)
     if cutoff is None:
-        return {"deletedFiles": 0, "deletedBytes": 0, "deletedDirs": 0, "cutoffDate": None}
+        return {
+            "deletedFiles": 0,
+            "deletedBytes": 0,
+            "deletedDirs": 0,
+            "supersededFiles": 0,
+            "supersededBytes": 0,
+            "disallowedFiles": 0,
+            "disallowedBytes": 0,
+            "cutoffDate": None,
+        }
 
     deleted_files = 0
     deleted_bytes = 0
     deleted_dirs = 0
     superseded_files = 0
     superseded_bytes = 0
+    disallowed_files = 0
+    disallowed_bytes = 0
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     mirrors = {project["id"]: (ROOT / project["mirror"]).resolve() for project in config["projects"]}
+    projects_by_id = {project["id"]: project for project in index["projects"]}
 
-    for project in index["projects"]:
-        mirror = mirrors.get(project["id"])
+    for project_cfg in config["projects"]:
+        mirror = mirrors.get(project_cfg["id"])
         if mirror is None:
+            continue
+        allowed = {suffix.lower() for suffix in project_cfg.get("log_suffixes", LOG_SUFFIXES)}
+        disallowed = prune_disallowed_logs(mirror, allowed)
+        disallowed_files += disallowed["deletedFiles"]
+        disallowed_bytes += disallowed["deletedBytes"]
+        project = projects_by_id.get(project_cfg["id"])
+        if project is None:
+            deleted_dirs += remove_empty_dirs(mirror)
             continue
         for items in project["logsByDate"].values():
             for item in items:
@@ -115,7 +162,7 @@ def prune_old_logs(days: int) -> dict[str, int | str | None]:
                     deleted_files += 1
                 except OSError as exc:
                     print(f"Failed to delete {target}: {exc}")
-        superseded = prune_superseded_logs(mirror)
+        superseded = prune_superseded_logs(mirror, allowed)
         superseded_files += superseded["deletedFiles"]
         superseded_bytes += superseded["deletedBytes"]
         deleted_dirs += remove_empty_dirs(mirror)
@@ -126,6 +173,8 @@ def prune_old_logs(days: int) -> dict[str, int | str | None]:
         "deletedDirs": deleted_dirs,
         "supersededFiles": superseded_files,
         "supersededBytes": superseded_bytes,
+        "disallowedFiles": disallowed_files,
+        "disallowedBytes": disallowed_bytes,
         "cutoffDate": cutoff,
     }
 
@@ -149,6 +198,11 @@ def main() -> None:
         "Pruned "
         f"{prune['supersededFiles']} superseded log files "
         f"({scanner.human_bytes(int(prune['supersededBytes']))})."
+    )
+    print(
+        "Pruned "
+        f"{prune['disallowedFiles']} disallowed log files "
+        f"({scanner.human_bytes(int(prune['disallowedBytes']))})."
     )
     MARKER.write_text("Log mirror sync complete.\n", encoding="utf-8")
     build(days=args.days)

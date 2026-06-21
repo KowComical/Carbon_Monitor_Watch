@@ -7,7 +7,8 @@
       "server": "gpu104",
       "host": "gpu104",
       "source": "/data3/kow/CM_Graced_Database/log/running_code",
-      "mirror": "log_mirror/graced_database"
+      "mirror": "log_mirror/graced_database",
+      "log_suffixes": [".md"]
     },
     {
       "id": "cities_database",
@@ -15,7 +16,8 @@
       "server": "gpu104",
       "host": "gpu104",
       "source": "/data3/kow/CM_Cities_Database/log/running_code",
-      "mirror": "log_mirror/cities_database"
+      "mirror": "log_mirror/cities_database",
+      "log_suffixes": [".md"]
     },
     {
       "id": "china_database",
@@ -23,7 +25,8 @@
       "server": "gpu104",
       "host": "gpu104",
       "source": "/data3/kow/CM_China_Database/log/all_process",
-      "mirror": "log_mirror/china_database"
+      "mirror": "log_mirror/china_database",
+      "log_suffixes": [".md"]
     },
     {
       "id": "power_database",
@@ -31,7 +34,8 @@
       "server": "cm47",
       "host": null,
       "source": "/data/xuanrenSong/CM_Power_Database/log",
-      "mirror": "log_mirror/power_database"
+      "mirror": "log_mirror/power_database",
+      "log_suffixes": [".log", ".out", ".txt"]
     }
   ]
 }

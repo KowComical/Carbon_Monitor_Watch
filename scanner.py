@@ -57,9 +57,14 @@ def is_hidden_or_temp(path: Path) -> bool:
     return any(part.startswith(".") for part in path.parts)
 
 
-def iter_log_files(root: Path) -> list[Path]:
+def allowed_suffixes(project_cfg: dict[str, Any]) -> set[str]:
+    return {suffix.lower() for suffix in project_cfg.get("log_suffixes", LOG_SUFFIXES)}
+
+
+def iter_log_files(root: Path, suffixes: set[str] | None = None) -> list[Path]:
     if not root.exists():
         return []
+    allowed = suffixes or LOG_SUFFIXES
     selected: dict[str, Path] = {}
     for path in root.rglob("*"):
         if not path.is_file():
@@ -67,7 +72,7 @@ def iter_log_files(root: Path) -> list[Path]:
         rel = path.relative_to(root)
         if is_hidden_or_temp(rel):
             continue
-        if path.suffix.lower() not in LOG_SUFFIXES:
+        if path.suffix.lower() not in allowed:
             continue
         key = rel.with_suffix("").as_posix()
         current = selected.get(key)
@@ -202,7 +207,7 @@ def aggregate_status(items: list[dict[str, Any]]) -> str:
 def build_project(project_cfg: dict[str, Any]) -> dict[str, Any]:
     mirror = (ROOT / project_cfg["mirror"]).resolve()
     logs = []
-    for path in iter_log_files(mirror):
+    for path in iter_log_files(mirror, allowed_suffixes(project_cfg)):
         rel = path.relative_to(mirror).as_posix()
         try:
             logs.append(scan_log(path, rel))
