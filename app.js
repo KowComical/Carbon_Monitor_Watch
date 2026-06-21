@@ -15,9 +15,10 @@ const state = {
   pollMs: 120000,
   staticMode: null,
   staticProjectCache: new Map(),
+  dataVersion: null,
 };
 
-const DATA_VERSION = "20260621-md-headings";
+const DATA_VERSION = "20260621-data-cache";
 
 const STATUS_LABELS = {
   ok: "OK",
@@ -48,8 +49,11 @@ function escapeHtml(value) {
 }
 
 async function fetchJson(url) {
+  const version = url === "data/summary.json"
+    ? `${DATA_VERSION}-${Date.now()}`
+    : (state.dataVersion || DATA_VERSION);
   const cacheBustedUrl = url.startsWith("data/")
-    ? `${url}${url.includes("?") ? "&" : "?"}v=${DATA_VERSION}`
+    ? `${url}${url.includes("?") ? "&" : "?"}v=${encodeURIComponent(version)}`
     : url;
   const response = await fetch(cacheBustedUrl, { cache: "no-store" });
   if (!response.ok) {
@@ -63,6 +67,7 @@ async function fetchSummaryData() {
     try {
       const summary = await fetchJson("data/summary.json");
       state.staticMode = true;
+      state.dataVersion = summary.generatedAt || DATA_VERSION;
       return summary;
     } catch (error) {
       if (state.staticMode === true) throw error;
