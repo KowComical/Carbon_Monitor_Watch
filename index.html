@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carbon Monitor Watch</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Carbon Monitor</p>
+          <h1>Carbon Monitor Watch</h1>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="Summary">
+        <div class="metric">
+          <span class="metric-label">Projects</span>
+          <strong id="metricProjects">-</strong>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latest Day</span>
+          <strong id="metricLatest">-</strong>
+        </div>
+      </section>
+
+      <section id="statusSummary" class="status-summary" aria-label="Project status summary"></section>
+
+      <main class="workspace">
+        <aside class="project-panel">
+          <div class="panel-title">
+            <span>Projects</span>
+            <small id="generatedAt">-</small>
+          </div>
+          <div id="projectList" class="project-list"></div>
+        </aside>
+
+        <section class="date-panel">
+          <div class="panel-title">
+            <span>Dates</span>
+            <small id="dateCount">-</small>
+          </div>
+          <div id="dateList" class="date-list"></div>
+          <div class="date-list-footer">
+            <button id="showMoreDatesButton" class="show-more-button" type="button" hidden>Show more</button>
+          </div>
+        </section>
+
+        <section class="log-panel">
+          <div class="project-heading">
+            <div>
+              <p id="projectMeta" class="eyebrow">-</p>
+              <h2 id="projectName">Select a project</h2>
+            </div>
+            <span id="projectStatus" class="status-pill status-unknown">Unknown</span>
+          </div>
+
+          <div class="log-layout">
+            <div class="log-list-wrap">
+              <div class="panel-title">
+                <span>Logs</span>
+                <small id="logCount">-</small>
+              </div>
+              <div id="logList" class="log-list"></div>
+            </div>
+
+            <div class="viewer">
+              <div class="viewer-toolbar">
+                <div id="selectedLogName" class="selected-log">No log selected</div>
+                <div class="viewer-controls">
+                  <div class="segmented" aria-label="Line filter">
+                    <button id="allLinesButton" class="active" type="button">All</button>
+                    <button id="issueLinesButton" type="button">Issues</button>
+                  </div>
+                  <input id="searchInput" type="search" placeholder="Search tail" />
+                </div>
+              </div>
+              <pre id="logContent" class="log-content">Loading...</pre>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
