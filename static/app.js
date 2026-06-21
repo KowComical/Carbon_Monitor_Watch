@@ -162,15 +162,38 @@ function renderMarkdown(value) {
   const lines = value.split("\n");
   const html = [];
   let inList = false;
+  let inCodeBlock = false;
+  let codeLines = [];
   const closeList = () => {
     if (inList) {
       html.push("</ul>");
       inList = false;
     }
   };
+  const closeCodeBlock = () => {
+    if (inCodeBlock) {
+      html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      inCodeBlock = false;
+      codeLines = [];
+    }
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
+    if (trimmed.startsWith("```")) {
+      if (inCodeBlock) {
+        closeCodeBlock();
+      } else {
+        closeList();
+        inCodeBlock = true;
+        codeLines = [];
+      }
+      continue;
+    }
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
     if (!trimmed) {
       closeList();
       html.push(`<div class="md-spacer"></div>`);
@@ -197,6 +220,7 @@ function renderMarkdown(value) {
     closeList();
     html.push(`<p>${formatMarkdownInline(trimmed)}</p>`);
   }
+  closeCodeBlock();
   closeList();
   return html.join("");
 }
@@ -249,10 +273,8 @@ function setStatusFilter(status) {
     qs("#projectName").textContent = "No matching projects";
     qs("#projectMeta").textContent = "Change the status filter";
     qs("#dateList").innerHTML = "";
-    qs("#logList").innerHTML = "";
     qs("#logContent").textContent = "";
     qs("#dateCount").textContent = "-";
-    qs("#logCount").textContent = "-";
     renderDateMoreButton();
     return;
   }
@@ -388,35 +410,19 @@ function currentLogs() {
 }
 
 function renderLogs() {
-  const list = qs("#logList");
   const logs = currentLogs();
-  qs("#logCount").textContent = `${logs.length} files`;
   if (!logs.length) {
-    list.innerHTML = `<div class="empty-state">No logs match this filter for the selected date.</div>`;
     qs("#selectedLogName").textContent = "No log selected";
-    qs("#logContent").textContent = "";
+    qs("#logContent").classList.remove("markdown-content");
+    qs("#logContent").textContent = state.statusFilter
+      ? "No logs match this filter for the selected date."
+      : "No log selected.";
     return;
   }
-  list.innerHTML = logs
-    .map((log) => {
-      const active = log.path === state.selectedLogPath ? "active" : "";
-      return `
-        <button class="log-item tone-${escapeHtml(log.status)} ${active}" type="button" data-log="${escapeHtml(log.path)}" aria-pressed="${active ? "true" : "false"}">
-          <div class="log-item-top">
-            <strong>${escapeHtml(log.name)}</strong>
-            ${statusDot(log.status)}
-          </div>
-          <div class="log-meta">
-            ${issueChips(log)}
-            <span>${escapeHtml(log.modified)}</span>
-          </div>
-        </button>
-      `;
-    })
-    .join("");
-  list.querySelectorAll("[data-log]").forEach((button) => {
-    button.addEventListener("click", () => selectLog(button.dataset.log));
-  });
+  if (!logs.some((log) => log.path === state.selectedLogPath)) {
+    state.selectedLogPath = logs[0].path;
+    state.selectedLogIsMarkdown = state.selectedLogPath.toLowerCase().endsWith(".md");
+  }
 }
 
 function renderProjectHeading() {
@@ -451,7 +457,7 @@ async function selectLog(path) {
   state.selectedLogPath = path;
   state.selectedLogIsMarkdown = path.toLowerCase().endsWith(".md");
   renderLogs();
-  qs("#selectedLogName").textContent = `${path} | tail ${state.tailLines}`;
+  qs("#selectedLogName").textContent = path;
   qs("#logContent").textContent = "Loading...";
   try {
     const payload = await fetchLogData(state.project.id, path);

@@ -512,14 +512,8 @@ input[type="search"]:focus-visible {
 }
 
 .log-layout {
-  display: grid;
-  grid-template-columns: minmax(230px, 310px) minmax(0, 1fr);
-  gap: 16px;
+  display: block;
   margin-top: 16px;
-}
-
-.log-list-wrap {
-  min-width: 0;
 }
 
 .viewer {
@@ -610,7 +604,8 @@ input[type="search"] {
 .log-content.markdown-content h3,
 .log-content.markdown-content h4,
 .log-content.markdown-content p,
-.log-content.markdown-content ul {
+.log-content.markdown-content ul,
+.log-content.markdown-content pre {
   margin: 0;
 }
 
@@ -634,6 +629,17 @@ input[type="search"] {
   padding-left: 18px;
 }
 
+.log-content.markdown-content pre {
+  margin: 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  background: #f5f8f7;
+  color: #1f2924;
+  white-space: pre-wrap;
+}
+
 .log-content.markdown-content li,
 .log-content.markdown-content p {
   font-family: inherit;
@@ -648,6 +654,14 @@ input[type="search"] {
   color: var(--ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
+}
+
+.log-content.markdown-content pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .md-spacer {

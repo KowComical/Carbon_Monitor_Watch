@@ -44,6 +44,66 @@ def strip_log_for_list(item: dict[str, Any], data_path: str) -> dict[str, Any]:
     } | {"dataPath": data_path}
 
 
+def merge_log_content(project_id: str, items: list[dict[str, Any]]) -> str:
+    chunks = []
+    for item in sorted(items, key=lambda log: (log["mtime"], log["path"])):
+        tail = scanner.tail_log(project_id, item["path"], TAIL_LINES)
+        chunks.append(f"## {item['name']}\n\n{tail.get('content', '')}".rstrip())
+    return "\n\n".join(chunks)
+
+
+def merged_log_for_day(project: dict[str, Any], day: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+    ordered = sorted(items, key=lambda item: (item["mtime"], item["path"]))
+    latest = ordered[-1]
+    status = scanner.aggregate_status(ordered)
+    rel_path = f"{day[:4]}/{day[5:7]}/combined-{day}.md"
+    file_name = log_data_name(project["id"], rel_path)
+    data_path = f"data/logs/{project['id']}/{file_name}"
+    content = merge_log_content(project["id"], ordered)
+    total_size = sum(item["size"] for item in ordered)
+    payload = {
+        "project": project["id"],
+        "path": rel_path,
+        "name": f"combined-{day}.md",
+        "lines": TAIL_LINES,
+        "size": total_size,
+        "sizeLabel": scanner.human_bytes(total_size),
+        "modified": latest["modified"],
+        "content": content,
+    }
+    dump_json(STATIC_DATA / "logs" / project["id"] / file_name, payload)
+    return {
+        "path": rel_path,
+        "name": f"combined-{day}.md",
+        "date": day,
+        "status": status,
+        "size": total_size,
+        "sizeLabel": scanner.human_bytes(total_size),
+        "mtime": latest["mtime"],
+        "modified": latest["modified"],
+        "errors": sum(item["errors"] for item in ordered),
+        "warnings": sum(item["warnings"] for item in ordered),
+        "okSignals": sum(item["okSignals"] for item in ordered),
+        "lastLine": latest["lastLine"],
+        "dataPath": data_path,
+    }
+
+
+def static_logs_for_day(project: dict[str, Any], day: str) -> list[dict[str, Any]]:
+    items = project["logsByDate"].get(day, [])
+    if len(items) > 1:
+        return [merged_log_for_day(project, day, items)]
+
+    logs = []
+    for item in items:
+        file_name = log_data_name(project["id"], item["path"])
+        data_path = f"data/logs/{project['id']}/{file_name}"
+        tail = scanner.tail_log(project["id"], item["path"], TAIL_LINES)
+        dump_json(STATIC_DATA / "logs" / project["id"] / file_name, tail)
+        logs.append(strip_log_for_list(item, data_path))
+    return logs
+
+
 def project_for_static(project: dict[str, Any], cutoff: str | None) -> dict[str, Any]:
     dates = [
         item
@@ -54,14 +114,26 @@ def project_for_static(project: dict[str, Any], cutoff: str | None) -> dict[str,
     logs_by_date: dict[str, list[dict[str, Any]]] = {}
 
     for day in date_keys:
-        logs = []
-        for item in project["logsByDate"].get(day, []):
-            file_name = log_data_name(project["id"], item["path"])
-            data_path = f"data/logs/{project['id']}/{file_name}"
-            tail = scanner.tail_log(project["id"], item["path"], TAIL_LINES)
-            dump_json(STATIC_DATA / "logs" / project["id"] / file_name, tail)
-            logs.append(strip_log_for_list(item, data_path))
-        logs_by_date[day] = logs
+        logs_by_date[day] = static_logs_for_day(project, day)
+
+    dates = [
+        {
+            **item,
+            "count": len(logs_by_date.get(item["date"], [])),
+            "status": scanner.aggregate_status(logs_by_date.get(item["date"], [])),
+            "errors": sum(log["errors"] for log in logs_by_date.get(item["date"], [])),
+            "warnings": sum(log["warnings"] for log in logs_by_date.get(item["date"], [])),
+            "latestModified": max(
+                (log["modified"] for log in logs_by_date.get(item["date"], [])),
+                default=item["latestModified"],
+            ),
+            "mtime": max(
+                (log["mtime"] for log in logs_by_date.get(item["date"], [])),
+                default=item["mtime"],
+            ),
+        }
+        for item in dates
+    ]
 
     latest_date = dates[0]["date"] if dates else None
     latest_items = logs_by_date.get(latest_date, []) if latest_date else []
