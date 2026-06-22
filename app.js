@@ -11,14 +11,14 @@ const state = {
   moreDateLimit: 30,
   logRequestId: 0,
   statusFilter: null,
-  tailLines: 200,
+  tailLines: 1000,
   pollMs: 120000,
   staticMode: null,
   staticProjectCache: new Map(),
   dataVersion: null,
 };
 
-const DATA_VERSION = "20260621-data-cache";
+const DATA_VERSION = "20260622-log-lines";
 
 const STATUS_LABELS = {
   ok: "OK",
