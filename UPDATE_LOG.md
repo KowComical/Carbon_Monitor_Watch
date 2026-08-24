@@ -6,6 +6,15 @@
 
 ## 2026-08-25
 
+### 04:17 - gpu104 正式接管发布并下线 cm47
+
+- 更新内容：将 gpu104 的迁移提交无冲突追平到 GitHub `main` 最新历史；从四个 gpu104 本地日志源重新生成 14 天静态数据，并成功推送 `main` 与 `gh-pages`。
+- 更新内容：在 gpu104 安装每天 18:00 执行 `tools/sync_and_publish.sh` 的托管 cron，运行日志写入 `logs/sync_logs.log`。
+- 更新内容：公网 GitHub Pages 已验证返回 8 月 25 日新数据，四个项目均显示为 `gpu104`，Power 使用新版自动化日志并显示为 `ok`。
+- 更新内容：确认 gpu104 发布和自动任务正常后，移除 cm47 的 Watch cron，并永久删除旧目录 `/data/xuanrenSong/Carbon_Monitor_Watch`。
+- 验证：GitHub 远端 `main` 和 `gh-pages` 推送成功；公网 `data/summary.json` 验证通过；gpu104 cron 条目存在；cm47 cron 条目和旧项目目录均不存在。
+- 影响路径：GitHub `main`、GitHub `gh-pages`、gpu104 用户 crontab、cm47 用户 crontab，以及 cm47 旧项目目录。
+
 ### 04:07 - Watch 完全切换为 gpu104 本地数据源
 
 - 更新内容：Power Database 日志来源切换为 `gpu104:/data3/kow/CM_Power_Database/runtime/logs/automation`，四个受监测项目现在全部读取 gpu104 本地目录。
