@@ -20,14 +20,22 @@ import scanner
 from build_static_data import build, date_cutoff
 
 
+def sync_source(project: dict[str, object]) -> str:
+    source = Path(str(project["source"]))
+    if not source.is_absolute():
+        raise ValueError(f"Log source must be an absolute local path: {source}")
+    if not source.is_dir():
+        name = str(project.get("name") or project.get("id") or "Unknown project")
+        raise FileNotFoundError(f"Local log source for {name} does not exist: {source}")
+    return str(source).rstrip("/") + "/"
+
+
 def sync_sources() -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     for project in config["projects"]:
         dest = ROOT / project["mirror"]
         dest.mkdir(parents=True, exist_ok=True)
-        source = project["source"].rstrip("/") + "/"
-        if project.get("host"):
-            source = f"{project['host']}:{source}"
+        source = sync_source(project)
         cmd = ["rsync", *RSYNC_FLAGS]
         suffixes = [suffix.lower() for suffix in project.get("log_suffixes", [])]
         if suffixes:

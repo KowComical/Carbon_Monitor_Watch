@@ -8,9 +8,14 @@ ships the latest 14-day log window.
 - GRACED Database: `gpu104:/data3/kow/CM_Graced_Database/log/running_code`
 - Cities Database: `gpu104:/data3/kow/CM_Cities_Database/log/running_code`
 - China Database: `gpu104:/data3/kow/CM_China_Database/log/all_process`
-- Power Database: `cm47:/data/xuanrenSong/CM_Power_Database/log`
+- Power Database: `gpu104:/data3/kow/CM_Power_Database/runtime/logs/automation`
 
 ## Run
+
+Requires Python 3.9 or newer. On `gpu104`, use the installed `python3.9`
+executable because the system `python3` is Python 3.8. The publish script uses
+`python3.9` by default; set `CM_WATCH_PYTHON` only when another compatible
+interpreter is required.
 
 ```bash
 python run.py --host 127.0.0.1 --port 8765
@@ -26,7 +31,8 @@ python tools/sync_logs.py
 
 This updates `log_mirror/` and rebuilds the GitHub Pages data under
 `static/data/`. Local mirrored log files older than the latest 14-day window are
-deleted after each sync.
+deleted after each sync. All four sources are local directories on `gpu104`;
+the sync fails immediately if a source is missing and never falls back to SSH.
 
 ## Build Static Pages Data
 

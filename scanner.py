@@ -17,8 +17,12 @@ SCAN_LIMIT_BYTES = 2_500_000
 CACHE_TTL_SECONDS = 3600
 
 DATE_RE = re.compile(r"(20\d{2})[-/_.](\d{2})[-/_.](\d{2})")
-OK_RE = re.compile(r"\b(ok|finished|completed|success|succeeded|updated|done)\b", re.I)
-WARN_RE = re.compile(r"\b(warn|warning|timeout|retry|deprecated)\b", re.I)
+OK_RE = re.compile(
+    r"\b(ok|finished|completed|success|succeeded|updated|done)\b|(?<!未)(成功|完成|已更新|正常)",
+    re.I,
+)
+WARN_RE = re.compile(r"\b(warn|warning|timeout|retry|deprecated)\b|警告|超时|重试", re.I)
+CHINESE_ERROR_WORDS = ("失败", "错误", "异常", "致命", "未完成")
 
 _CACHE: dict[str, Any] = {"built_at": 0.0, "mirror_version": None, "data": None}
 _CACHE_LOCK = threading.Lock()
@@ -100,13 +104,19 @@ def read_for_scan(path: Path) -> str:
 
 def looks_like_zero_count(line: str, word: str) -> bool:
     lower = line.lower()
-    return (
+    if (
         f"{word}=0" in lower
         or f"{word}: 0" in lower
         or f"{word}s=0" in lower
         or f"{word}s: 0" in lower
         or f"0 {word}" in lower
         or f"0 {word}s" in lower
+    ):
+        return True
+    escaped = re.escape(word)
+    return bool(
+        re.search(rf"{escaped}(?:数|项)?\s*[:=：]?\s*0(?:\D|$)", line, re.I)
+        or re.search(rf"(?:^|\D)0\s*(?:个|项|次|条)?\s*{escaped}", line, re.I)
     )
 
 
@@ -120,12 +130,21 @@ def is_error_line(line: str) -> bool:
         return True
     if ("failed" in lower or "failure" in lower) and not looks_like_zero_count(lower, "failed"):
         return True
+    chinese_no_error = ("无异常", "没有异常", "未发现异常", "无错误", "未发现错误")
+    if any(phrase in line for phrase in chinese_no_error):
+        return False
+    if any(word in line and not looks_like_zero_count(line, word) for word in CHINESE_ERROR_WORDS):
+        return True
     return False
 
 
 def is_warning_line(line: str) -> bool:
     lower = line.lower()
     if looks_like_zero_count(lower, "warning") or looks_like_zero_count(lower, "warn"):
+        return False
+    if any(looks_like_zero_count(line, word) for word in ("警告", "超时", "重试")):
+        return False
+    if any(phrase in line for phrase in ("无警告", "未发现警告", "没有超时", "无需重试")):
         return False
     return bool(WARN_RE.search(line))
 

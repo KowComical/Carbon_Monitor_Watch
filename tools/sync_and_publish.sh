@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-python tools/sync_logs.py
+PYTHON_BIN="${CM_WATCH_PYTHON:-python3.9}"
+"$PYTHON_BIN" tools/sync_logs.py
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "Static data is updated locally. Skipping GitHub Pages publish because this directory is not a git repo."

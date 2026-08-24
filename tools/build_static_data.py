@@ -11,7 +11,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DATA = ROOT / "static" / "data"
-TAIL_LINES = 200
+TAIL_LINES = 1000
 
 sys.path.insert(0, str(ROOT))
 
